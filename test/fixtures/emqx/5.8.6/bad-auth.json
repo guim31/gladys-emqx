@@ -1,0 +1,4 @@
+{
+  "code": "BAD_API_KEY_OR_SECRET",
+  "message": "Check api_key/api_secret"
+}

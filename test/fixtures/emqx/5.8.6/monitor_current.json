@@ -1,0 +1,19 @@
+{
+  "connections": 1,
+  "topics": 1,
+  "subscriptions": 1,
+  "live_connections": 1,
+  "disconnected_durable_sessions": 0,
+  "subscriptions_durable": 0,
+  "subscriptions_ram": 1,
+  "retained_msg_count": 0,
+  "shared_subscriptions": 0,
+  "dropped_msg_rate": 0,
+  "persisted_rate": 0,
+  "received_msg_rate": 0,
+  "sent_msg_rate": 0,
+  "transformation_failed_rate": 0,
+  "transformation_succeeded_rate": 0,
+  "validation_failed_rate": 0,
+  "validation_succeeded_rate": 0
+}

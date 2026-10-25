@@ -31,16 +31,22 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only: src/app.js registers the handlers before connect()
+src/app.js                        handlers: discovery, action, scene action, widget, configuration
+src/hub.js                        30 s reading loop, link state, changed states, scene events
+src/devices.js                    the broker and followed-client devices, their features and states
+src/triggers.js                   scene triggers as transitions (outages, restarts, alarms, clients)
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
 src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/i18n.js                       every text the container produces, in en/fr/de/es
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/issues.js                     repeated failures logged once
+src/emqx/client.js                REST client of EMQX (API v5, HTTP Basic with an API key, GET only)
+src/emqx/snapshot.js              raw API answers -> numbers
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
+docs/en.md, fr.md, de.md, es.md   user documentation, re-hosted by Gladys (en and fr mandatory)
 test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+test/fixtures/emqx/               real answers of EMQX 5.8.6 and 6.3.2 (see its README)
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +76,9 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, widget content, feature names, manifest texts, and `docs/en.md`,
+  `fr.md`, `de.md`, `es.md`, kept in sync (`test/i18n.test.js`).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -233,3 +240,25 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## EMQX (propre à cette intégration)
+
+- **API** : REST v5 (`/api/v5/…`), identique en EMQX 5.8 (Opensource) et 6.x (édition unique
+  « Enterprise » sous licence BSL, image `emqx/emqx:latest` = 6.3.2 le 25/10/2026). Vérifié en Docker
+  sur les deux. Clé d'API + secret en HTTP Basic (créés dans **System → API Key**) ; le rôle `viewer`
+  existe en 6.x (et dans l'édition Enterprise de 5.x), la 5.8 Opensource ne crée que des clés
+  administrateur. Pas de prise en charge d'EMQX 4 (`/api/v4`, autre format).
+- Lectures par cycle de 30 s : `nodes` (version, `uptime` **en ms**, `node_status`), `monitor_current`
+  (agrégé du cluster : `live_connections` = clients connectés, `connections` compte aussi les sessions
+  persistantes déconnectées ; `received_msg_rate`, `sent_msg_rate`, `dropped_msg_rate` **par seconde,
+  entiers**, échantillonnés toutes les 10 s par EMQX : publiés ×60 par minute), `alarms?activated=true`,
+  puis `clients/{id}` (encodé) par client suivi.
+- `clients/{id}` : 200 avec `connected: true/false` tant que la session existe (persistante :
+  `disconnected_at` renseigné), **404 `CLIENTID_NOT_FOUND`** une fois la session partie. Un 404 compte
+  comme « déconnecté » ; la date de dernière connexion vue reste en mémoire.
+- Un 404 sur `nodes` veut dire « pas d'API EMQX 5 à cette adresse » (mauvais port, EMQX 4) ; 401/403
+  « clé refusée » (pas une panne : aucun déclencheur `broker_unreachable`).
+- Alarme provoquée pour les tests : `PUT /api/v5/configs/sysmon` avec `os.sysmem_high_watermark`
+  abaissé (jeton du login du tableau de bord) → `high_system_memory_usage` en ~5 s.
+- `external_id` d'un client : `encodeURIComponent(clientId)` (un client id peut contenir `/` ou `:`).
+  Figé : ne pas changer l'encodage.
