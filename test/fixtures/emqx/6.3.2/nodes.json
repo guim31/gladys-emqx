@@ -1,0 +1,26 @@
+[
+  {
+    "node": "emqx@192.0.2.10",
+    "version": "6.3.2",
+    "otp_release": "28.4.1-7/16.3",
+    "load1": 7.62,
+    "uptime": 220448,
+    "role": "core",
+    "memory_used": "9.93G",
+    "memory_total": "15.40G",
+    "node_status": "running",
+    "security_profile": "legacy",
+    "connections": 1,
+    "max_fds": 1048576,
+    "edition": "Enterprise",
+    "load15": 2.92,
+    "load5": 4.8,
+    "cluster_sessions": 1,
+    "feature_preset": "full",
+    "live_connections": 1,
+    "log_path": "log.file.enable is false, not logging to file.",
+    "process_available": 524288,
+    "process_used": 967,
+    "sys_path": "/opt/emqx"
+  }
+]

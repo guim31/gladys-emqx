@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "message": "73.38% mem usage",
+      "name": "high_system_memory_usage",
+      "node": "emqx@192.0.2.10",
+      "details": {
+        "high_watermark": 70.0,
+        "usage": 73.38
+      },
+      "duration": 13722,
+      "activate_at": "2026-10-25T10:57:07.131+00:00"
+    }
+  ],
+  "meta": {
+    "count": 1,
+    "limit": 100,
+    "page": 1,
+    "hasnext": false
+  }
+}

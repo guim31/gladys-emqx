@@ -1,8 +1,8 @@
 {
-  "name": "gladys-integration-template-js",
+  "name": "gladys-emqx",
   "version": "1.0.0",
   "private": true,
-  "description": "Official starter template to build an external integration for Gladys Assistant with the JavaScript SDK.",
+  "description": "Gladys Assistant integration for EMQX: the health of the MQTT broker, its alarms and followed clients, from its REST API.",
   "type": "module",
   "main": "index.js",
   "scripts": {
