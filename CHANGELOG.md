@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-25
+
 ### Added
 
 - The EMQX broker (or cluster) as a Gladys device, read from the REST API v5 of EMQX 5 and 6 with an
@@ -27,4 +29,5 @@ the notes of the version's GitHub Release.
   broker or an address without EMQX 5 API apart.
 - English, French, German and Spanish texts and documentation.
 
-[Unreleased]: https://github.com/guim31/gladys-emqx/commits/main
+[Unreleased]: https://github.com/guim31/gladys-emqx/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-emqx/releases/tag/v1.0.0
