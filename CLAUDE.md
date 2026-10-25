@@ -262,3 +262,9 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
   abaissé (jeton du login du tableau de bord) → `high_system_memory_usage` en ~5 s.
 - `external_id` d'un client : `encodeURIComponent(clientId)` (un client id peut contenir `/` ou `:`).
   Figé : ne pas changer l'encodage.
+- **Keep-alive** : EMQX 6.3.2 ferme les connexions HTTP inactives ; l'agent global de Node (keep-alive
+  par défaut depuis Node 19) réutilise alors une socket morte et une lecture sur deux échoue en
+  `ECONNRESET: socket hang up` (« Joignable » qui clignote, vu en Docker le 25/10). D'où `agent: false`
+  dans `src/emqx/client.js` : une connexion par requête.
+- Redémarrage : en Docker le nom de nœud vaut `emqx@<IP du conteneur>` ; un conteneur recréé est un
+  nouveau nœud. `broker_restarted` part aussi quand le nœud le plus jeune rajeunit.

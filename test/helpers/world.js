@@ -42,6 +42,9 @@ export function createFakeEmqx(version = '6.3.2') {
       'alarms?activated=true&limit=100': { status: 200, body: { data: [], meta: { count: 0 } } },
     },
     clients: {},
+    // API paths answering 500, and a promise every request waits for.
+    failing: new Set(),
+    gate: null,
     /** Answer every request with a status (401, 500…). */
     failWith(status, body = null) {
       emqx.status = status;
@@ -66,6 +69,9 @@ export function createFakeEmqx(version = '6.3.2') {
     },
     async get(url, options) {
       emqx.requests.push({ url, options });
+      if (emqx.gate) {
+        await emqx.gate;
+      }
       if (emqx.down) {
         const err = new Error('connect ECONNREFUSED 192.0.2.10:18083');
         err.code = 'ECONNREFUSED';
@@ -75,6 +81,9 @@ export function createFakeEmqx(version = '6.3.2') {
         return { status: emqx.status, body: emqx.statusBody ?? fixture(version, 'bad-auth') };
       }
       const path = url.replace(/^.*\/api\/v5\//, '');
+      if (emqx.failing.has(path)) {
+        return { status: 500, body: null };
+      }
       const client = path.match(/^clients\/(.+)$/);
       if (client) {
         const state = emqx.clients[decodeURIComponent(client[1])];

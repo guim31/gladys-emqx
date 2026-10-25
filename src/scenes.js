@@ -27,14 +27,17 @@ export function brokerSummary(hub) {
   const alarms = Array.isArray(stats.alarms) ? stats.alarms : [];
   return {
     summary: brokerSentence(data, hub.config?.language ?? 'fr'),
-    reachable: data.reachable === true,
+    // The numbers are readable: a refused key or a wrong address is not fine.
+    reachable: hub.live(),
     clients_connected: round(stats.clientsConnected),
     messages_received_per_minute: round(stats.messagesReceived),
     messages_sent_per_minute: round(stats.messagesSent),
     messages_dropped_per_minute: round(stats.messagesDropped),
     active_alarms: hub.live() ? alarms.length : null,
     alarm_names: [...new Set(alarms.map((alarm) => alarm.name))].join(', '),
-    uptime_hours: round(stats.uptimeSeconds / 3600, 1),
+    uptime_hours: Number.isFinite(stats.uptimeSeconds)
+      ? round(stats.uptimeSeconds / 3600, 1)
+      : null,
     version: stats.version ?? '',
   };
 }

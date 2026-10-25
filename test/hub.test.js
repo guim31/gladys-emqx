@@ -351,3 +351,63 @@ test('a new list of clients updates the Discovery tab, an old client is forgotte
   );
   assert.ok(!world.hub.clients.has('sensor-1'));
 });
+
+test('a recreated container (new node name, young uptime) fires broker_restarted', async (t) => {
+  const world = await addedWorld(t);
+  const route = world.emqx.routes.nodes;
+  route.body = route.body.map((node) => ({ ...node, node: 'emqx@192.0.2.11', uptime: 4000 }));
+  await tick(t, 30 * SECOND);
+  assert.deepEqual(keys(world), ['broker_restarted']);
+  assert.equal(world.gladys.fake.sceneEvents[0].data.node, 'emqx@192.0.2.11');
+});
+
+test('a redirect of a proxy is not an outage: no EMQX 5 API there', async (t) => {
+  const world = await addedWorld(t);
+  world.emqx.failWith(301, null);
+  await tick(t, 3 * MINUTE);
+  assert.deepEqual(keys(world), []);
+  assert.match(world.gladys.fake.connectionStatus.message.en, /No EMQX 5 API/);
+  const summary = (await world.gladys.fake.sceneAction('broker_summary', {})).data.outputs;
+  assert.equal(summary.reachable, false);
+});
+
+test('a client that cannot be read is not republished as fresh', async (t) => {
+  const world = await addedWorld(t, { clients: ['flaky'] });
+  const ids = world.gladys.externalIds('client', 'flaky');
+  world.emqx.failing.add('clients/flaky');
+  await tick(t, 30 * SECOND);
+  assert.ok(world.hub.unreadClients.has('flaky'));
+  const count = () =>
+    world.gladys.fake.states.filter((s) => s.device_feature_external_id.startsWith(ids.device))
+      .length;
+  const before = count();
+  await world.gladys.fake.deviceCreated(
+    world.gladys.fake.discoveredDevices.find((d) => d.external_id === ids.device),
+  );
+  await flush();
+  assert.equal(count(), before);
+  world.emqx.failing.clear();
+  await tick(t, 30 * SECOND);
+  assert.ok(!world.hub.unreadClients.has('flaky'));
+});
+
+test('a configuration saved during a slow read is read at once', async (t) => {
+  const world = await addedWorld(t);
+  world.emqx.failWith(401);
+  await tick(t, 30 * SECOND);
+  assert.equal(world.hub.link, 'refused');
+  // A slow read is in flight when the user fixes the secret.
+  let release;
+  world.emqx.gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const slow = world.hub.poll();
+  const saved = world.gladys.fake.configUpdated({ ...CONFIG, api_secret: 'fixed' });
+  world.emqx.failWith(0);
+  world.emqx.gate = null;
+  release();
+  await slow;
+  await saved;
+  await flush();
+  assert.equal(world.hub.link, 'connected');
+});

@@ -40,7 +40,12 @@ export const DEFAULT_TIMINGS = {
 const LANGS = ['en', 'fr', 'de', 'es'];
 
 /** The link state behind a failed read of the broker. */
-const LINK_OF_ERROR = { refused: 'refused', not_found: 'incompatible' };
+// A 404 or another unexpected status (a redirect of a proxy, 400…): something
+// answers, but not the EMQX 5 API.
+const LINK_OF_ERROR = { refused: 'refused', not_found: 'incompatible', http: 'incompatible' };
+
+// Followed clients read at the same time.
+const CLIENT_CONCURRENCY = 5;
 
 export class EmqxHub {
   /**
@@ -69,6 +74,9 @@ export class EmqxHub {
     this.discovered = false;
     this.pollTimer = null;
     this.polling = null;
+    this.pollingGeneration = 0;
+    // Followed clients whose latest read failed: not republished as fresh.
+    this.unreadClients = new Set();
     this.status = null;
     this.generation = 0;
   }
@@ -148,12 +156,26 @@ export class EmqxHub {
 
   // --- Reading EMQX ---------------------------------------------------------------
 
-  /** One cycle; overlapping calls share it. */
+  /**
+   * One cycle; overlapping calls share it. A cycle started under an older
+   * configuration gives up on its result: a new one follows it.
+   */
   poll() {
-    this.polling ??= this.readOnce().finally(() => {
-      this.polling = null;
-    });
-    return this.polling;
+    if (this.polling && this.pollingGeneration === this.generation) {
+      return this.polling;
+    }
+    const previous = this.polling ?? Promise.resolve();
+    const run = previous
+      .catch(() => {})
+      .then(() => this.readOnce())
+      .finally(() => {
+        if (this.polling === run) {
+          this.polling = null;
+        }
+      });
+    this.polling = run;
+    this.pollingGeneration = this.generation;
+    return run;
   }
 
   async readOnce() {
@@ -178,25 +200,38 @@ export class EmqxHub {
       this.linkDetail = err.message;
     }
     const clients = new Map();
+    const unread = new Set();
     if (snapshot) {
-      for (const clientId of config.client_ids) {
-        try {
-          clients.set(clientId, parseClient(await api.client(clientId)));
-          this.issues.ok('clients', 'The followed clients can be read again');
-        } catch (err) {
-          this.issues.fail('clients', `Reading the client "${clientId}" failed: ${err.message}`);
+      const queue = [...config.client_ids];
+      const worker = async () => {
+        while (queue.length > 0) {
+          const clientId = queue.shift();
+          try {
+            clients.set(clientId, parseClient(await api.client(clientId)));
+            this.issues.ok(`client:${clientId}`, `The client "${clientId}" can be read again`);
+          } catch (err) {
+            unread.add(clientId);
+            this.issues.fail(
+              `client:${clientId}`,
+              `Reading the client "${clientId}" failed: ${err.message}`,
+            );
+          }
         }
-      }
+      };
+      await Promise.all(Array.from({ length: CLIENT_CONCURRENCY }, worker));
     }
     if (generation !== this.generation) {
       // A newer configuration took over during the requests.
       return;
     }
-    await this.apply(link, snapshot, clients);
+    if (snapshot) {
+      this.unreadClients = unread;
+    }
+    await this.apply(link, snapshot, clients, generation);
   }
 
   /** The result of one cycle: link, numbers, triggers, then Gladys. */
-  async apply(link, snapshot, clients) {
+  async apply(link, snapshot, clients, generation = this.generation) {
     const linkChanged = link !== this.link;
     this.logLink(link);
     this.link = link;
@@ -233,11 +268,15 @@ export class EmqxHub {
       ]);
     }
     await this.updateStatus();
-    if (!this.discovered && snapshot) {
+    if (snapshot && (!this.discovered || this.issues.isFailing('discovery'))) {
       await this.publishDiscovery();
     }
     await this.publish();
     for (const [key, clientId, extra] of events) {
+      if (generation !== this.generation) {
+        // Another broker configured meanwhile: these events are not its own.
+        break;
+      }
       await this.fireScene(key, clientId, extra);
     }
     if (linkChanged || alarmsChanged) {
@@ -401,7 +440,7 @@ export class EmqxHub {
       const language = this.config?.language ?? 'fr';
       for (const [clientId] of this.addedClients()) {
         const client = this.clients.get(clientId);
-        if (client) {
+        if (client && !this.unreadClients.has(clientId)) {
           states.push(...buildClientStates(this.gladys, clientId, { client, language }));
         }
       }

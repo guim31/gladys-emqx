@@ -90,7 +90,7 @@ export function registerHandlers(gladys, options = {}) {
       await hub.configure(normalizeConfig(raw));
     } catch (err) {
       logger.error(`Post-connection initialization failed: ${err.message}`);
-      await gladys.setConnectionStatus(false, MESSAGES.publishFailed).catch(() => {});
+      await gladys.setConnectionStatus(false, MESSAGES.startFailed).catch(() => {});
     }
   });
 

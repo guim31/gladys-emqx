@@ -77,7 +77,8 @@ export const FEATURES = [
     min: 0,
     max: 36500,
     keepHistory: false,
-    read: ({ stats }) => round(stats.uptimeSeconds / 86400, 2),
+    read: ({ stats }) =>
+      Number.isFinite(stats.uptimeSeconds) ? round(stats.uptimeSeconds / 86400, 2) : null,
   },
   {
     key: 'version',

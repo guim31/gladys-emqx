@@ -131,13 +131,27 @@ export function createTriggerTracker({ now = () => Date.now() } = {}) {
      * @returns {string[]} the nodes that restarted
      */
     onUptimes(uptimes) {
-      const restarted =
-        lastUptimes === null
-          ? []
-          : Object.keys(uptimes).filter(
-              (node) => lastUptimes[node] !== undefined && uptimes[node] < lastUptimes[node],
-            );
-      lastUptimes = { ...lastUptimes, ...uptimes };
+      const nodes = Object.keys(uptimes);
+      let restarted = [];
+      if (lastUptimes !== null && nodes.length > 0) {
+        restarted = nodes.filter(
+          (node) => lastUptimes[node] !== undefined && uptimes[node] < lastUptimes[node],
+        );
+        // In Docker the node name holds the IP of the container: a recreated
+        // container is a new node. The youngest node getting younger tells it.
+        const youngest = nodes.reduce((a, b) => (uptimes[a] <= uptimes[b] ? a : b));
+        const previous = Object.values(lastUptimes);
+        if (
+          restarted.length === 0 &&
+          previous.length > 0 &&
+          uptimes[youngest] < Math.min(...previous)
+        ) {
+          restarted = [youngest];
+        }
+      }
+      if (nodes.length > 0) {
+        lastUptimes = { ...uptimes };
+      }
       return restarted;
     },
 

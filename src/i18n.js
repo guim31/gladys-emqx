@@ -111,6 +111,12 @@ export const MESSAGES = {
     de: 'Keine EMQX-5-API unter dieser Adresse: Gib den Port des Dashboards an. EMQX 4 wird nicht unterstützt.',
     es: 'No hay API de EMQX 5 en esta dirección: indique el puerto del panel. EMQX 4 no es compatible.',
   },
+  startFailed: {
+    en: 'The integration could not read its configuration from Gladys: see its logs.',
+    fr: "L'intégration n'a pas pu lire sa configuration dans Gladys : consultez ses journaux.",
+    de: 'Die Integration konnte ihre Konfiguration nicht aus Gladys lesen: Sieh dir ihre Protokolle an.',
+    es: 'La integración no pudo leer su configuración en Gladys: consulte sus registros.',
+  },
   publishFailed: {
     en: 'Gladys refused the EMQX devices: see the integration logs.',
     fr: "Gladys a refusé les appareils EMQX : consultez les journaux de l'intégration.",

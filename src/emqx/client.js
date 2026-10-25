@@ -46,6 +46,10 @@ export function httpGet(url, { authorization, tlsInsecure, timeoutMs }) {
         method: 'GET',
         headers: { accept: 'application/json', authorization },
         timeout: timeoutMs,
+        // A fresh connection per request: EMQX closes idle keep-alive
+        // connections, and reusing one fails with "socket hang up" (seen on
+        // 6.3.2 every other read).
+        agent: false,
         ...(target.protocol === 'https:' ? { rejectUnauthorized: !tlsInsecure } : {}),
       },
       (response) => {
